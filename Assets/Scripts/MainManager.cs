@@ -1,151 +1,27 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 public class MainManager : MonoBehaviour
 {
-    public static MainManager instance;
-    [SerializeField] private InputField input;
-    [SerializeField] private GameObject paddle;
-
-    public string playerName;
-    public int highscore = 0;
-
     public Brick BrickPrefab;
     public int LineCount = 6;
     public Rigidbody Ball;
 
     public Text ScoreText;
     public GameObject GameOverText;
-    
+
     private bool m_Started = false;
-    private int m_Points;
-    
+    private int m_Points = 0;
+
     private bool m_GameOver = false;
 
 
-    private void Awake()
-    {
-        if(instance!=null)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        instance=this;
-        DontDestroyOnLoad(gameObject);
-        LoadHighscoreAndName();
-    }
 
     // Start is called before the first frame update
     void Start()
-    {
-            UpdateInputField();
-    }
-
-    private void Update()
-    {
-        if (SceneManager.GetActiveScene().buildIndex == 1)
-        {
-            if (!m_Started)
-            {
-                if (Input.GetKeyDown(KeyCode.Space))
-                {
-                    m_Started = true;
-                    float randomDirection = Random.Range(-1.0f, 1.0f);
-                    Vector3 forceDir = new Vector3(randomDirection, 1, 0);
-                    forceDir.Normalize();
-
-                    Ball.transform.SetParent(null);
-                    Ball.AddForce(forceDir * 2.0f, ForceMode.VelocityChange);
-                }
-            }
-            else if (m_GameOver)
-            {
-                if (Input.GetKeyDown(KeyCode.Space))
-                {
-                    SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-                }
-            }
-        }
-    }
-
-    void AddPoint(int point)
-    {
-        m_Points += point;
-        ScoreText.text = $"Score : {m_Points}";
-    }
-
-    public void GameOver()
-    {
-        m_GameOver = true;
-        GameOverText.SetActive(true);
-    }
-
-    [System.Serializable]
-    class SaveData
-    {
-        public string name;
-        public int highscore;
-    }
-
-    public void SaveHighscoreAndName()
-    {
-        SaveData data = new SaveData();
-        data.name = name;
-        data.highscore = highscore;
-        string json = JsonUtility.ToJson(data);
-        File.WriteAllText(Application.persistentDataPath + "/savefile.json", json);
-    }
-
-    public void LoadHighscoreAndName()
-    {
-        string path = Application.persistentDataPath + "/savefile.json";
-        if(File.Exists(path))
-        {
-            string json = File.ReadAllText(path);
-            SaveData data = JsonUtility.FromJson<SaveData>(json);
-
-            name = data.name;
-            highscore = data.highscore;
-        }
-    }
-
-    public void UpdateName()
-    {
-        name = input.text;
-    }
-
-    private void UpdateInputField()
-    {
-        input.text = name;
-    }
-
-    public void Exit()
-    {
-        SaveHighscoreAndName();
-#if UNITY_EDITOR
-        EditorApplication.ExitPlaymode();
-#else
-
-        Application.Quit();
-#endif
-    }
-
-    public void StartGame()
-    {
-        SceneManager.LoadScene(1);
-        SetupGame();
-        paddle.SetActive(true);
-    }
-
-    private void SetupGame()
     {
         const float step = 0.6f;
         int perLine = Mathf.FloorToInt(4.0f / step);
@@ -161,5 +37,46 @@ public class MainManager : MonoBehaviour
                 brick.onDestroyed.AddListener(AddPoint);
             }
         }
+        DataManager.Instance.UpdateHighscoreText();
+        ScoreText.text = "Score " + DataManager.Instance.playerName + " : " + m_Points;
+
+
+    }
+
+    private void Update()
+    {
+        if (!m_Started)
+        {
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                m_Started = true;
+                float randomDirection = Random.Range(-1.0f, 1.0f);
+                Vector3 forceDir = new Vector3(randomDirection, 1, 0);
+                forceDir.Normalize();
+
+                Ball.transform.SetParent(null);
+                Ball.AddForce(forceDir * 2.0f, ForceMode.VelocityChange);
+            }
+        }
+        else if (m_GameOver)
+        {
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            }
+        }
+    }
+
+    void AddPoint(int point)
+    {
+        m_Points += point;
+        ScoreText.text = "Score "+DataManager.Instance.playerName+" : " + m_Points;        
+    }
+
+    public void GameOver()
+    {
+        DataManager.Instance.EvaluateScore(m_Points);
+        m_GameOver = true;
+        GameOverText.SetActive(true);
     }
 }
